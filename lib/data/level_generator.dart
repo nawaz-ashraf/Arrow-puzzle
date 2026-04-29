@@ -2,51 +2,55 @@ import 'dart:math';
 import '../models/arrow_model.dart';
 import '../models/level_model.dart';
 
-/// Procedurally generates levels for IDs beyond hand-crafted ones.
+/// Generates levels using REVERSE construction:
 ///
-/// Difficulty scaling (no blockers — arrows block each other):
-/// - Level 1–10  → 4×4, 3–5 arrows, length 1
-/// - Level 11–30 → 5×5, 6–8 arrows, length 1–2
-/// - Level 31+   → 6×6, 8–12 arrows, length 1–3
+/// 1. Start with empty grid (solved state)
+/// 2. Add arrows one by one, each MUST have a clear escape path
+///    considering only previously placed arrows
+/// 3. Player solves in reverse order → GUARANTEED solvable
+///
+/// Why this works:
+/// - Arrow N can escape (clear path when placed with arrows 1..N-1)
+/// - After N escapes, arrow N-1 can escape (path was clear with 1..N-2)
+/// - ... all the way down to arrow 1 (placed on empty grid)
 class LevelGenerator {
   LevelGenerator();
 
   LevelModel generate({required int levelId}) {
     assert(levelId > 13, 'Levels ≤13 are hand-crafted in LevelData');
-    final rng = Random(levelId * 31337);
 
     final (gridSize, maxLen, diff) = _tierFor(levelId);
     final arrowCount = min(3 + levelId ~/ 2, gridSize * 2);
     final targetMoves = arrowCount + (levelId ~/ 5);
     final name = _nameFor(levelId);
 
-    for (int attempt = 0; attempt < 25; attempt++) {
-      final r = Random(levelId * 31337 + attempt);
-      final result = _tryBuild(
-        rng: r, levelId: levelId, rows: gridSize, cols: gridSize,
-        arrowCount: arrowCount, maxLen: maxLen,
-        name: name, targetMoves: targetMoves, diff: diff,
+    for (int seed = 0; seed < 50; seed++) {
+      final rng = Random(levelId * 31337 + seed);
+      final arrows = _buildSolvableLevel(
+        rng: rng, rows: gridSize, cols: gridSize,
+        arrowCount: arrowCount, maxLen: maxLen, levelId: levelId,
       );
-      if (result != null) return result;
+      if (arrows != null && arrows.length >= (arrowCount * 0.7).ceil()) {
+        return LevelModel(
+          id: levelId, name: name, rows: gridSize, cols: gridSize,
+          difficulty: diff, targetMoves: targetMoves, arrows: arrows,
+        );
+      }
     }
 
-    return _fallback(levelId: levelId, rows: gridSize, cols: gridSize,
-        name: name, targetMoves: targetMoves, diff: diff);
+    return _fallback(
+      levelId: levelId, rows: gridSize, cols: gridSize,
+      name: name, targetMoves: targetMoves, diff: diff,
+    );
   }
 
-  // ── Tier configuration ────────────────────────────────────────────────────
+  // ── Tier configuration ──────────────────────────────────────────────────
 
   (int, int, Difficulty) _tierFor(int id) {
-    if (id <= 10) {
-      return (4, 1, Difficulty.easy);
-    } else if (id <= 30) {
-      return (5, 2, id <= 20 ? Difficulty.medium : Difficulty.hard);
-    } else {
-      return (6, 3, Difficulty.hard);
-    }
+    if (id <= 10) return (4, 1, Difficulty.easy);
+    if (id <= 30) return (5, 2, id <= 20 ? Difficulty.medium : Difficulty.hard);
+    return (6, 3, Difficulty.hard);
   }
-
-  // ── Names pool ────────────────────────────────────────────────────────────
 
   String _nameFor(int id) {
     const pool = [
@@ -57,20 +61,19 @@ class LevelGenerator {
     return pool[(id - 14) % pool.length];
   }
 
-  // ── Builder ───────────────────────────────────────────────────────────────
+  // ── Core: reverse-construction algorithm ────────────────────────────────
 
-  LevelModel? _tryBuild({
+  List<ArrowModel>? _buildSolvableLevel({
     required Random rng,
-    required int levelId, required int rows, required int cols,
+    required int rows, required int cols,
     required int arrowCount, required int maxLen,
-    required String name, required int targetMoves, required Difficulty diff,
+    required int levelId,
   }) {
+    final arrows = <ArrowModel>[];
     final occupied = <String>{};
-    final allPieces = <ArrowModel>[];
-
-    // Place playable arrows (no blockers)
     int placed = 0;
-    for (int attempts = 0; attempts < arrowCount * 30 && placed < arrowCount; attempts++) {
+
+    for (int attempt = 0; attempt < arrowCount * 50 && placed < arrowCount; attempt++) {
       final dir = ArrowDirection.values[rng.nextInt(4)];
       final len = 1 + rng.nextInt(maxLen);
 
@@ -81,7 +84,7 @@ class LevelGenerator {
       final r = rng.nextInt(maxR + 1);
       final c = rng.nextInt(maxC + 1);
 
-      // All cells of this arrow
+      // All cells this arrow occupies
       final List<({int row, int col})> cells;
       if (dir.isHorizontal) {
         cells = List.generate(len, (i) => (row: r, col: c + i));
@@ -90,59 +93,67 @@ class LevelGenerator {
       }
 
       // Bounds check
-      if (cells.any((cell) => cell.row < 0 || cell.row >= rows ||
+      if (cells.any((cell) =>
+          cell.row < 0 || cell.row >= rows ||
           cell.col < 0 || cell.col >= cols)) continue;
 
-      // No overlaps
+      // No overlaps with existing arrows
       final keys = cells.map((cell) => '${cell.row},${cell.col}').toList();
       if (keys.any(occupied.contains)) continue;
 
-      // Check frontNext is not blocked (but allow out-of-bounds = escape)
-      final ({int row, int col}) headCell;
-      switch (dir) {
-        case ArrowDirection.right: headCell = (row: r, col: c + len - 1); break;
-        case ArrowDirection.left:  headCell = (row: r, col: c);           break;
-        case ArrowDirection.down:  headCell = (row: r + len - 1, col: c); break;
-        case ArrowDirection.up:    headCell = (row: r, col: c);           break;
-      }
-      final fnr = headCell.row + dir.dr, fnc = headCell.col + dir.dc;
-      if (fnr >= 0 && fnr < rows && fnc >= 0 && fnc < cols &&
-          occupied.contains('$fnr,$fnc')) continue;
-
-      // Prevent unsolvable opposite locks (neighbor conflict)
-      if (!_isValidPlacement(r, c, dir, allPieces)) continue;
-
-      occupied.addAll(keys);
-      allPieces.add(ArrowModel(
+      // ★ THE KEY CHECK: can this arrow escape to the edge?
+      final candidate = ArrowModel(
         id: '${levelId}_A$placed', row: r, col: c,
         direction: dir, length: len,
-      ));
+      );
+
+      if (!_canEscape(candidate, arrows, rows, cols)) continue;
+
+      occupied.addAll(keys);
+      arrows.add(candidate);
       placed++;
     }
 
     if (placed < (arrowCount * 0.7).ceil()) return null;
-
-    // Must have at least one immediately escapable arrow
-    if (!_hasEscape(rows, cols, allPieces)) return null;
-
-    return LevelModel(
-      id: levelId, name: name, rows: rows, cols: cols,
-      difficulty: diff, targetMoves: targetMoves, arrows: allPieces,
-    );
+    return arrows;
   }
 
-  bool _hasEscape(int rows, int cols, List<ArrowModel> pieces) {
-    final occ = <String>{};
-    for (final p in pieces) {
-      for (final cell in p.occupiedCells) { occ.add('${cell.row},${cell.col}'); }
+  /// Simulates the arrow moving step-by-step in its direction.
+  /// Returns true ONLY if the arrow reaches the grid boundary
+  /// without hitting any existing arrow.
+  bool _canEscape(
+    ArrowModel arrow, List<ArrowModel> existingArrows,
+    int rows, int cols,
+  ) {
+    // Build occupancy from existing arrows only
+    final occupied = <String>{};
+    for (final a in existingArrows) {
+      for (final cell in a.occupiedCells) {
+        occupied.add('${cell.row},${cell.col}');
+      }
     }
-    for (final p in pieces) {
-      final fn = p.frontNext;
-      if (fn.row < 0 || fn.row >= rows || fn.col < 0 || fn.col >= cols) return true;
-      if (!occ.contains('${fn.row},${fn.col}')) return true;
+
+    // Trace from the head outward, one step at a time
+    var hr = arrow.head.row;
+    var hc = arrow.head.col;
+    final dr = arrow.direction.dr;
+    final dc = arrow.direction.dc;
+
+    for (int step = 0; step < rows + cols; step++) {
+      hr += dr;
+      hc += dc;
+
+      // Reached edge → escaped!
+      if (hr < 0 || hr >= rows || hc < 0 || hc >= cols) return true;
+
+      // Hit another arrow → blocked
+      if (occupied.contains('$hr,$hc')) return false;
     }
-    return false;
+
+    return false; // safety fallback
   }
+
+  // ── Fallback (simple guaranteed-solvable layout) ────────────────────────
 
   LevelModel _fallback({
     required int levelId, required int rows, required int cols,
@@ -161,25 +172,5 @@ class LevelGenerator {
       id: levelId, name: name, rows: rows, cols: cols,
       difficulty: diff, targetMoves: targetMoves, arrows: arrows,
     );
-  }
-
-  // ── Opposite-lock prevention ──────────────────────────────────────────────
-
-  static bool _isOpposite(ArrowDirection a, ArrowDirection b) {
-    return (a == ArrowDirection.up && b == ArrowDirection.down) ||
-           (a == ArrowDirection.down && b == ArrowDirection.up) ||
-           (a == ArrowDirection.left && b == ArrowDirection.right) ||
-           (a == ArrowDirection.right && b == ArrowDirection.left);
-  }
-
-  bool _isValidPlacement(int r, int c, ArrowDirection dir, List<ArrowModel> arrows) {
-    for (final a in arrows) {
-      // Check neighbor conflict
-      if (a.col == c && a.row == r + 1 && _isOpposite(dir, a.direction)) return false;
-      if (a.col == c && a.row == r - 1 && _isOpposite(dir, a.direction)) return false;
-      if (a.col == c + 1 && a.row == r && _isOpposite(dir, a.direction)) return false;
-      if (a.col == c - 1 && a.row == r && _isOpposite(dir, a.direction)) return false;
-    }
-    return true;
   }
 }
