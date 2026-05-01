@@ -1,0 +1,8 @@
+# app-ads.txt for Arrow Escape
+# Publisher ID: pub-4392358942856616
+# This file must be hosted at the root of your developer website domain.
+# Example: https://yourwebsite.com/app-ads.txt
+#
+# Format: <ad system domain>, <publisher ID>, <account type>, <certification authority ID>
+
+google.com, pub-4392358942856616, DIRECT, f08c47fec0942fa0

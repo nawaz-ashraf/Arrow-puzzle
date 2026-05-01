@@ -132,6 +132,69 @@ class AppTheme {
     brightness: Brightness.dark,
   );
 
+  // ── Chapter VI — "Void Abyss" (levels 151–200) ───────────────────────────
+  static const voidAbyss = AppColorScheme(
+    background: Color(0xFF0B0014),
+    backgroundAlt: Color(0xFF12001F),
+    surface: Color(0xFF1A0A2E),
+    surfaceHigh: Color(0xFF251440),
+    border: Color(0xFF3D1D6B),
+    primary: Color(0xFFBB86FC),       // Vibrant purple
+    accent: Color(0xFFE040FB),        // Magenta accent
+    accentAlt: Color(0xFF7C4DFF),
+    textPrimary: Color(0xFFF3E5F5),
+    textSecondary: Color(0xFF9575CD),
+    blockerColor: Color(0xFF3D1D6B),
+    linkedGlow: Color(0xFFE040FB),
+    hintGlow: Color(0xFFBB86FC),
+    successColor: Color(0xFF69F0AE),
+    warningColor: Color(0xFFFFAB40),
+    errorColor: Color(0xFFFF5252),
+    brightness: Brightness.dark,
+  );
+
+  // ── Chapter VII — "Inferno Core" (levels 201–250) ─────────────────────────
+  static const infernoCore = AppColorScheme(
+    background: Color(0xFF140000),
+    backgroundAlt: Color(0xFF1F0505),
+    surface: Color(0xFF2A0A0A),
+    surfaceHigh: Color(0xFF3D1515),
+    border: Color(0xFF5C1A1A),
+    primary: Color(0xFFFF6B6B),       // Fiery red
+    accent: Color(0xFFFF4444),        // Crimson accent
+    accentAlt: Color(0xFFFF8A65),
+    textPrimary: Color(0xFFFFF0F0),
+    textSecondary: Color(0xFFCC7777),
+    blockerColor: Color(0xFF5C1A1A),
+    linkedGlow: Color(0xFFFF4444),
+    hintGlow: Color(0xFFFF6B6B),
+    successColor: Color(0xFF81C784),
+    warningColor: Color(0xFFFFCA28),
+    errorColor: Color(0xFFFF1744),
+    brightness: Brightness.dark,
+  );
+
+  // ── Chapter VIII — "Emerald Mythic" (levels 251–300) ──────────────────────
+  static const emeraldMythic = AppColorScheme(
+    background: Color(0xFF001A0A),
+    backgroundAlt: Color(0xFF002410),
+    surface: Color(0xFF0A3018),
+    surfaceHigh: Color(0xFF144025),
+    border: Color(0xFF1B5E20),
+    primary: Color(0xFF00E676),       // Emerald green
+    accent: Color(0xFF76FF03),        // Lime accent
+    accentAlt: Color(0xFF00BFA5),
+    textPrimary: Color(0xFFE8F5E9),
+    textSecondary: Color(0xFF81C784),
+    blockerColor: Color(0xFF1B5E20),
+    linkedGlow: Color(0xFF76FF03),
+    hintGlow: Color(0xFF00E676),
+    successColor: Color(0xFF00E676),
+    warningColor: Color(0xFFFFD740),
+    errorColor: Color(0xFFFF5252),
+    brightness: Brightness.dark,
+  );
+
   /// Returns the correct [AppColorScheme] for a given [GameChapter].
   static AppColorScheme forChapter(GameChapter chapter) {
     switch (chapter) {
@@ -143,14 +206,23 @@ class AppTheme {
       case GameChapter.hard:
       case GameChapter.expert:
         return goldElite;
+      case GameChapter.master:
+        return voidAbyss;
+      case GameChapter.legend:
+        return infernoCore;
+      case GameChapter.mythic:
+        return emeraldMythic;
     }
   }
 
   /// Convenience: derive chapter from level ID.
   static AppColorScheme forLevel(int levelId) {
-    if (levelId <= 10) return softTactile;
-    if (levelId <= 50) return neonDark;
-    return goldElite;
+    if (levelId <= 10)  return softTactile;
+    if (levelId <= 50)  return neonDark;
+    if (levelId <= 150) return goldElite;
+    if (levelId <= 200) return voidAbyss;
+    if (levelId <= 250) return infernoCore;
+    return emeraldMythic;
   }
 
   /// Returns a [ThemeData] compatible with the current colour scheme.

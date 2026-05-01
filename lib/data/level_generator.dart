@@ -21,17 +21,25 @@ class LevelConfig {
   });
 }
 
-/// Generates levels using REVERSE construction with 5-stage difficulty curve.
+/// Generates levels using REVERSE construction with 8-stage difficulty curve.
 ///
 /// Solvability guarantee:
 /// 1. Start with empty grid (solved state)
 /// 2. Add arrows one by one, each MUST have a clear escape path
-/// 3. Player solves in reverse placement order → always solvable
+/// 3. After all arrows placed, run full solvability simulation
+/// 4. Full simulation: repeatedly remove any escapable arrow until grid empty
+/// 5. If any arrows remain stuck → reject and regenerate
 ///
 /// Difficulty axes:
-/// - Grid size:   4×4 → 5×5 → 6×6 → 7×7
-/// - Arrow count: 3 → 16
-/// - Complexity:  independent arrows → deep dependency chains
+/// - Grid size:    4×4 → 8×8
+/// - Arrow count:  3 → 22
+/// - Arrow length: 1 → 3
+/// - Complexity:   independent arrows → deep dependency chains
+///
+/// Deadlock prevention:
+/// - No opposite-facing arrows on same row/col adjacent (instant block)
+/// - No circular dependency chains
+/// - At least one arrow must be initially free
 class LevelGenerator {
   LevelGenerator();
 
@@ -43,24 +51,27 @@ class LevelGenerator {
     final config = getConfig(levelId);
     final name = _nameFor(levelId);
 
-    for (int seed = 0; seed < 50; seed++) {
+    for (int seed = 0; seed < 80; seed++) {
       final rng = Random(levelId * 31337 + seed);
       final arrows = _buildSolvableLevel(rng: rng, config: config, levelId: levelId);
       if (arrows != null && arrows.length >= (config.arrowCount * 0.7).ceil()) {
-        return LevelModel(
-          id: levelId, name: name,
-          rows: config.gridSize, cols: config.gridSize,
-          difficulty: config.difficulty,
-          targetMoves: config.targetMoves,
-          arrows: arrows,
-        );
+        // Final validation: ensure the level is FULLY solvable
+        if (_isFullySolvable(arrows, config.gridSize, config.gridSize)) {
+          return LevelModel(
+            id: levelId, name: name,
+            rows: config.gridSize, cols: config.gridSize,
+            difficulty: config.difficulty,
+            targetMoves: config.targetMoves,
+            arrows: arrows,
+          );
+        }
       }
     }
 
     return _fallback(levelId: levelId, config: config, name: name);
   }
 
-  // ── 5-Stage Difficulty Curve ────────────────────────────────────────────
+  // ── 8-Stage Difficulty Curve ────────────────────────────────────────────
 
   /// Maps any level ID to its precise configuration.
   /// Difficulty ramps smoothly within each stage.
@@ -125,29 +136,79 @@ class LevelGenerator {
       );
     }
 
-    // ── STAGE 5: EXPERT (100+) ──
-    // 6×6→7×7, 12-16 arrows, tight spacing
-    final progress = ((level - 101) / 50).clamp(0.0, 1.0);
-    final arrows = 12 + (progress * 4).round(); // 12 → 16
-    final grid = level <= 125 ? 6 : 7;
+    if (level <= 150) {
+      // ── STAGE 5: EXPERT ──
+      // 6×6→7×7, 12-16 arrows, tight spacing
+      final progress = ((level - 101) / 49).clamp(0.0, 1.0);
+      final arrows = 12 + (progress * 4).round(); // 12 → 16
+      final grid = level <= 125 ? 6 : 7;
+      return LevelConfig(
+        gridSize: grid,
+        arrowCount: arrows.clamp(12, 16),
+        maxLen: 3,
+        complexity: 5,
+        difficulty: Difficulty.hard,
+        targetMoves: arrows + 5,
+      );
+    }
+
+    if (level <= 200) {
+      // ── STAGE 6: MASTER ──
+      // 7×7, 14-18 arrows, deep chains, tight
+      final progress = ((level - 151) / 49).clamp(0.0, 1.0);
+      final arrows = 14 + (progress * 4).round(); // 14 → 18
+      return LevelConfig(
+        gridSize: 7,
+        arrowCount: arrows.clamp(14, 18),
+        maxLen: 3,
+        complexity: 5,
+        difficulty: Difficulty.hard,
+        targetMoves: arrows + 5,
+      );
+    }
+
+    if (level <= 250) {
+      // ── STAGE 7: LEGEND ──
+      // 7×7→8×8, 16-20 arrows, extreme chains
+      final progress = ((level - 201) / 49).clamp(0.0, 1.0);
+      final arrows = 16 + (progress * 4).round(); // 16 → 20
+      final grid = level <= 225 ? 7 : 8;
+      return LevelConfig(
+        gridSize: grid,
+        arrowCount: arrows.clamp(16, 20),
+        maxLen: 3,
+        complexity: 5,
+        difficulty: Difficulty.hard,
+        targetMoves: arrows + 6,
+      );
+    }
+
+    // ── STAGE 8: MYTHIC (251-300+) ──
+    // 8×8, 18-22 arrows, maximum challenge
+    final progress = ((level - 251) / 49).clamp(0.0, 1.0);
+    final arrows = 18 + (progress * 4).round(); // 18 → 22
     return LevelConfig(
-      gridSize: grid,
-      arrowCount: arrows.clamp(12, 16),
+      gridSize: 8,
+      arrowCount: arrows.clamp(18, 22),
       maxLen: 3,
       complexity: 5,
       difficulty: Difficulty.hard,
-      targetMoves: arrows + 5,
+      targetMoves: arrows + 7,
     );
   }
 
-  // ── Names pool ──────────────────────────────────────────────────────────
+  // ── Names pool (40+) ───────────────────────────────────────────────────
 
   String _nameFor(int id) {
     const pool = [
-      'Gridlock',   'Tangle',    'Ricochet',  'Junction',  'Cascade',
-      'Labyrinth',  'Pulse',     'Circuit',   'Reactor',   'Nexus',
-      'Vortex',     'Overdrive', 'Apex',      'Summit',    'Eclipse',
-      'Momentum',   'Paradox',   'Helix',     'Fracture',  'Zenith',
+      'Gridlock',    'Tangle',      'Ricochet',    'Junction',    'Cascade',
+      'Labyrinth',   'Pulse',       'Circuit',     'Reactor',     'Nexus',
+      'Vortex',      'Overdrive',   'Apex',        'Summit',      'Eclipse',
+      'Momentum',    'Paradox',     'Helix',       'Fracture',    'Zenith',
+      'Catalyst',    'Prism',       'Cipher',      'Phantom',     'Flux',
+      'Riptide',     'Tempest',     'Quasar',      'Oblivion',    'Mirage',
+      'Singularity', 'Entropy',     'Nebula',      'Horizon',     'Pinnacle',
+      'Maelstrom',   'Crucible',    'Inferno',     'Fortress',    'Abyss',
     ];
     return pool[(id - 14) % pool.length];
   }
@@ -175,6 +236,9 @@ class LevelGenerator {
       if (keys.any(occupied.contains)) continue;
       if (!_canEscape(candidate, arrows, rows, cols)) continue;
 
+      // Deadlock check: no opposite-facing arrows blocking each other
+      if (_createsOppositeBlock(candidate, arrows)) continue;
+
       occupied.addAll(keys);
       arrows.add(candidate);
       placed++;
@@ -182,13 +246,19 @@ class LevelGenerator {
 
     // Phase 2: Place "dependent" arrows (blocked by existing, creates sequencing)
     final totalTarget = config.arrowCount;
-    for (int attempt = 0; attempt < totalTarget * 60 && placed < totalTarget; attempt++) {
+    for (int attempt = 0; attempt < totalTarget * 80 && placed < totalTarget; attempt++) {
       final candidate = _randomArrow(rng, rows, cols, config.maxLen, levelId, placed);
       if (candidate == null) continue;
 
       final keys = candidate.occupiedCells.map((c) => '${c.row},${c.col}').toList();
       if (keys.any(occupied.contains)) continue;
-      if (!_canEscape(candidate, arrows, rows, cols)) continue;
+
+      // For dependent arrows, we allow blocked ones but MUST verify
+      // they can eventually escape once other arrows are removed.
+      // This is checked by _isFullySolvable after all arrows are placed.
+
+      // Still reject if it creates an obvious deadlock
+      if (_createsOppositeBlock(candidate, arrows)) continue;
 
       occupied.addAll(keys);
       arrows.add(candidate);
@@ -231,7 +301,9 @@ class LevelGenerator {
 
     if (cells.any((cell) =>
         cell.row < 0 || cell.row >= rows ||
-        cell.col < 0 || cell.col >= cols)) return null;
+        cell.col < 0 || cell.col >= cols)) {
+      return null;
+    }
 
     return ArrowModel(
       id: '${levelId}_A$index', row: r, col: c,
@@ -265,6 +337,78 @@ class LevelGenerator {
       if (occupied.contains('$hr,$hc')) return false;
     }
 
+    return false;
+  }
+
+  // ── Full solvability check ─────────────────────────────────────────────
+
+  /// Simulates solving the entire level by repeatedly removing any arrow
+  /// that can escape. If ALL arrows can eventually be removed, the level
+  /// is fully solvable. This catches dependency chains and deadlocks.
+  bool _isFullySolvable(List<ArrowModel> arrows, int rows, int cols) {
+    if (arrows.isEmpty) return true;
+
+    var remaining = List<ArrowModel>.from(arrows);
+    bool progress = true;
+
+    while (remaining.isNotEmpty && progress) {
+      progress = false;
+      for (int i = 0; i < remaining.length; i++) {
+        final arrow = remaining[i];
+        final others = <ArrowModel>[
+          ...remaining.sublist(0, i),
+          ...remaining.sublist(i + 1),
+        ];
+        if (_canEscape(arrow, others, rows, cols)) {
+          remaining = others;
+          progress = true;
+          break; // restart loop with updated list
+        }
+      }
+    }
+
+    return remaining.isEmpty;
+  }
+
+  // ── Deadlock prevention: opposite-facing check ─────────────────────────
+
+  /// Checks if placing [candidate] creates an obvious deadlock where
+  /// two arrows face each other on the same row/col and block each other.
+  bool _createsOppositeBlock(ArrowModel candidate, List<ArrowModel> existing) {
+    for (final a in existing) {
+      // Same row, facing each other horizontally
+      if (candidate.direction == ArrowDirection.right &&
+          a.direction == ArrowDirection.left &&
+          candidate.row == a.row &&
+          candidate.col < a.col) {
+        // candidate → ... ← a — potential mutual block
+        final gap = a.col - (candidate.col + candidate.length - 1) - 1;
+        if (gap <= 0) return true;
+      }
+      if (candidate.direction == ArrowDirection.left &&
+          a.direction == ArrowDirection.right &&
+          candidate.row == a.row &&
+          candidate.col > a.col) {
+        final gap = candidate.col - (a.col + a.length - 1) - 1;
+        if (gap <= 0) return true;
+      }
+
+      // Same col, facing each other vertically
+      if (candidate.direction == ArrowDirection.down &&
+          a.direction == ArrowDirection.up &&
+          candidate.col == a.col &&
+          candidate.row < a.row) {
+        final gap = a.row - (candidate.row + candidate.length - 1) - 1;
+        if (gap <= 0) return true;
+      }
+      if (candidate.direction == ArrowDirection.up &&
+          a.direction == ArrowDirection.down &&
+          candidate.col == a.col &&
+          candidate.row > a.row) {
+        final gap = candidate.row - (a.row + a.length - 1) - 1;
+        if (gap <= 0) return true;
+      }
+    }
     return false;
   }
 

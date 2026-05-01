@@ -1,7 +1,7 @@
 import 'arrow_model.dart';
 
 /// Chapter a level belongs to (drives the visual theme).
-enum GameChapter { beginner, easy, medium, hard, expert }
+enum GameChapter { beginner, easy, medium, hard, expert, master, legend, mythic }
 
 /// Difficulty label for UI display.
 enum Difficulty { easy, medium, hard }
@@ -28,14 +28,17 @@ class LevelModel {
     this.targetMoves = 999,
   });
 
-  // ── Chapter (5-stage progression) ─────────────────────────────────────────
+  // ── Chapter (8-stage progression) ─────────────────────────────────────────
 
   GameChapter get chapter {
-    if (id <= 10) return GameChapter.beginner;
-    if (id <= 25) return GameChapter.easy;
-    if (id <= 50) return GameChapter.medium;
+    if (id <= 10)  return GameChapter.beginner;
+    if (id <= 25)  return GameChapter.easy;
+    if (id <= 50)  return GameChapter.medium;
     if (id <= 100) return GameChapter.hard;
-    return GameChapter.expert;
+    if (id <= 150) return GameChapter.expert;
+    if (id <= 200) return GameChapter.master;
+    if (id <= 250) return GameChapter.legend;
+    return GameChapter.mythic;
   }
 
   String get chapterLabel {
@@ -45,6 +48,9 @@ class LevelModel {
       case GameChapter.medium:   return 'Chapter III';
       case GameChapter.hard:     return 'Chapter IV';
       case GameChapter.expert:   return 'Chapter V';
+      case GameChapter.master:   return 'Chapter VI';
+      case GameChapter.legend:   return 'Chapter VII';
+      case GameChapter.mythic:   return 'Chapter VIII';
     }
   }
 

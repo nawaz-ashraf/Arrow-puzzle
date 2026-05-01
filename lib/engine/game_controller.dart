@@ -14,7 +14,7 @@ enum GameStatus { idle, playing, animating, levelComplete }
 
 /// Central state manager. Single source of truth for game state.
 class GameController extends ChangeNotifier {
-  static const int kTotalLevels = 150;
+  static const int kTotalLevels = 300;
 
   final MovementEngine _engine = const MovementEngine();
   final LevelGenerator _generator = LevelGenerator();

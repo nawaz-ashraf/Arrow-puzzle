@@ -17,15 +17,28 @@ class AdService {
   InterstitialAd? _interstitialAd;
   bool _isInitialized = false;
 
-  // ── Test Ad Unit IDs (replace with real ones before release) ────────────
-  // TODO: Replace with production ad unit IDs before publishing
-  String get _rewardedAdUnitId => Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/5224354917'  // Android test
-      : 'ca-app-pub-3940256099942544/1712485313';  // iOS test
+  // ── Ad Unit IDs ──────────────────────────────────────────────────────────
+  // Debug builds use Google test IDs to avoid invalid traffic.
+  // Release builds use production IDs.
+  String get _rewardedAdUnitId {
+    if (kDebugMode) {
+      return Platform.isAndroid
+          ? 'ca-app-pub-3940256099942544/5224354917'   // Android test
+          : 'ca-app-pub-3940256099942544/1712485313';  // iOS test
+    }
+    // Production — Android only (add iOS rewarded ID when available)
+    return 'ca-app-pub-4392358942856616/9039604032';
+  }
 
-  String get _interstitialAdUnitId => Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/1033173712'  // Android test
-      : 'ca-app-pub-3940256099942544/4411468910';  // iOS test
+  String get _interstitialAdUnitId {
+    if (kDebugMode) {
+      return Platform.isAndroid
+          ? 'ca-app-pub-3940256099942544/1033173712'   // Android test
+          : 'ca-app-pub-3940256099942544/4411468910';  // iOS test
+    }
+    // Production — Android only (add iOS interstitial ID when available)
+    return 'ca-app-pub-4392358942856616/9816446734';
+  }
 
   // ── Initialize ──────────────────────────────────────────────────────────
 

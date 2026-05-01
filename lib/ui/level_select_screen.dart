@@ -123,6 +123,12 @@ class _ChapterHeader extends StatelessWidget {
         return ('Chapter IV · Hard', Icons.whatshot_rounded, '6×6');
       case GameChapter.expert:
         return ('Chapter V · Expert', Icons.auto_awesome_rounded, '6-7×');
+      case GameChapter.master:
+        return ('Chapter VI · Master', Icons.psychology_rounded, '7×7');
+      case GameChapter.legend:
+        return ('Chapter VII · Legend', Icons.local_fire_department_rounded, '7-8×');
+      case GameChapter.mythic:
+        return ('Chapter VIII · Mythic', Icons.diamond_rounded, '8×8');
     }
   }
 
