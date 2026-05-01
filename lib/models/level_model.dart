@@ -1,7 +1,7 @@
 import 'arrow_model.dart';
 
 /// Chapter a level belongs to (drives the visual theme).
-enum GameChapter { softTactile, neonDark, goldElite }
+enum GameChapter { beginner, easy, medium, hard, expert }
 
 /// Difficulty label for UI display.
 enum Difficulty { easy, medium, hard }
@@ -28,19 +28,23 @@ class LevelModel {
     this.targetMoves = 999,
   });
 
-  // ── Chapter ───────────────────────────────────────────────────────────────
+  // ── Chapter (5-stage progression) ─────────────────────────────────────────
 
   GameChapter get chapter {
-    if (id <= 10) return GameChapter.softTactile;
-    if (id <= 30) return GameChapter.neonDark;
-    return GameChapter.goldElite;
+    if (id <= 10) return GameChapter.beginner;
+    if (id <= 25) return GameChapter.easy;
+    if (id <= 50) return GameChapter.medium;
+    if (id <= 100) return GameChapter.hard;
+    return GameChapter.expert;
   }
 
   String get chapterLabel {
     switch (chapter) {
-      case GameChapter.softTactile: return 'Chapter I';
-      case GameChapter.neonDark:    return 'Chapter II';
-      case GameChapter.goldElite:   return 'Chapter III';
+      case GameChapter.beginner: return 'Chapter I';
+      case GameChapter.easy:     return 'Chapter II';
+      case GameChapter.medium:   return 'Chapter III';
+      case GameChapter.hard:     return 'Chapter IV';
+      case GameChapter.expert:   return 'Chapter V';
     }
   }
 

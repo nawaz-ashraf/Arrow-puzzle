@@ -113,12 +113,16 @@ class _ChapterHeader extends StatelessWidget {
 
   (String, IconData, String) get _meta {
     switch (chapter) {
-      case GameChapter.softTactile:
-        return ('Chapter I · Soft Tactile', Icons.wb_sunny_rounded, '4×4');
-      case GameChapter.neonDark:
-        return ('Chapter II · Neon Dark', Icons.bolt_rounded, '5×5');
-      case GameChapter.goldElite:
-        return ('Chapter III · Gold Elite', Icons.auto_awesome_rounded, '6×6');
+      case GameChapter.beginner:
+        return ('Chapter I · Beginner', Icons.wb_sunny_rounded, '4×4');
+      case GameChapter.easy:
+        return ('Chapter II · Easy', Icons.eco_rounded, '5×5');
+      case GameChapter.medium:
+        return ('Chapter III · Medium', Icons.bolt_rounded, '5-6×');
+      case GameChapter.hard:
+        return ('Chapter IV · Hard', Icons.whatshot_rounded, '6×6');
+      case GameChapter.expert:
+        return ('Chapter V · Expert', Icons.auto_awesome_rounded, '6-7×');
     }
   }
 

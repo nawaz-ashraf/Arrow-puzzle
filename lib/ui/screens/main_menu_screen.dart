@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../engine/game_controller.dart';
 import '../app_theme.dart';
+import '../widgets/daily_reward_dialog.dart';
 
 /// Callback to switch the HomeShell tab.
 typedef TabSwitcher = void Function(int index);
@@ -32,6 +35,13 @@ class _MainMenuScreenState extends State<MainMenuScreen>
         .animate(CurvedAnimation(parent: _ac, curve: const Interval(0, 0.6, curve: Curves.easeOut)));
     _btnScale = CurvedAnimation(parent: _ac, curve: const Interval(0.5, 1.0, curve: Curves.elasticOut));
     _ac.forward();
+
+    // Show daily reward after build completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = context.read<GameController>();
+      DailyRewardDialog.checkAndShow(context, controller);
+    });
   }
 
   @override

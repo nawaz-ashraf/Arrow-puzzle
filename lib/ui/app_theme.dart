@@ -135,11 +135,13 @@ class AppTheme {
   /// Returns the correct [AppColorScheme] for a given [GameChapter].
   static AppColorScheme forChapter(GameChapter chapter) {
     switch (chapter) {
-      case GameChapter.softTactile:
+      case GameChapter.beginner:
         return softTactile;
-      case GameChapter.neonDark:
+      case GameChapter.easy:
+      case GameChapter.medium:
         return neonDark;
-      case GameChapter.goldElite:
+      case GameChapter.hard:
+      case GameChapter.expert:
         return goldElite;
     }
   }
@@ -147,7 +149,7 @@ class AppTheme {
   /// Convenience: derive chapter from level ID.
   static AppColorScheme forLevel(int levelId) {
     if (levelId <= 10) return softTactile;
-    if (levelId <= 30) return neonDark;
+    if (levelId <= 50) return neonDark;
     return goldElite;
   }
 

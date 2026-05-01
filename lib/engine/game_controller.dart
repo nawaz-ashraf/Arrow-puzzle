@@ -6,16 +6,20 @@ import '../models/level_model.dart';
 import '../data/level_data.dart';
 import '../data/level_generator.dart';
 import '../engine/movement_engine.dart';
+import '../services/ad_service.dart';
+import '../services/daily_reward_service.dart';
 import '../ui/app_theme.dart';
 
 enum GameStatus { idle, playing, animating, levelComplete }
 
 /// Central state manager. Single source of truth for game state.
 class GameController extends ChangeNotifier {
-  static const int kTotalLevels = 40;
+  static const int kTotalLevels = 150;
 
   final MovementEngine _engine = const MovementEngine();
   final LevelGenerator _generator = LevelGenerator();
+  final DailyRewardService _dailyRewards = DailyRewardService();
+  int _levelsCompletedSinceAd = 0;
 
   // ── Level pool ────────────────────────────────────────────────────────────
   late final List<LevelModel> _allLevels;
@@ -48,6 +52,10 @@ class GameController extends ChangeNotifier {
   bool       get canUndo       => _undoStack.isNotEmpty;
   List<LevelModel> get allLevels => _allLevels;
   int        get targetMoves   => _currentLevel.targetMoves;
+  int        get freeHints     => _dailyRewards.freeHints;
+  bool       get hasHints      => _dailyRewards.hasHints;
+  int        get streak        => _dailyRewards.streak;
+  DailyRewardService get dailyRewards => _dailyRewards;
 
   AppColorScheme get colorScheme =>
       AppTheme.forChapter(_currentLevel.chapter);
@@ -63,6 +71,13 @@ class GameController extends ChangeNotifier {
     _allLevels = _buildPool();
     _loadProgress();
     _loadLevel(_allLevels.first);
+    _initServices();
+  }
+
+  Future<void> _initServices() async {
+    await AdService.instance.initialize();
+    await _dailyRewards.load();
+    notifyListeners();
   }
 
   // ── Pool ──────────────────────────────────────────────────────────────────
@@ -177,6 +192,16 @@ class GameController extends ChangeNotifier {
         _highestUnlocked = nextId;
       }
       _saveProgress();
+
+      // Interstitial ad every 3 completed levels
+      _levelsCompletedSinceAd++;
+      if (_levelsCompletedSinceAd >= 3) {
+        _levelsCompletedSinceAd = 0;
+        // Small delay so level-complete overlay shows first
+        Future.delayed(const Duration(milliseconds: 800), () {
+          AdService.instance.showInterstitialAd();
+        });
+      }
     } else {
       _status = GameStatus.playing;
     }
@@ -194,8 +219,14 @@ class GameController extends ChangeNotifier {
 
   // ── Hint ──────────────────────────────────────────────────────────────────
 
-  void showHint() {
-    if (_status != GameStatus.playing) return;
+  /// Uses a free hint if available, otherwise signals ad needed.
+  /// Returns true if hint was shown, false if ad is needed.
+  bool showHint() {
+    if (_status != GameStatus.playing) return true;
+
+    if (!_dailyRewards.hasHints) return false; // Signal: show rewarded ad
+
+    _dailyRewards.useHint();
     _hintArrowId = null;
     for (final arrow in _grid.playableArrows) {
       if (_canEscape(arrow)) {
@@ -207,6 +238,13 @@ class GameController extends ChangeNotifier {
         ? _grid.playableArrows.first.id
         : null;
     notifyListeners();
+    return true;
+  }
+
+  /// Grants hints from rewarded ad and immediately shows hint.
+  void grantHintFromAd() {
+    _dailyRewards.addHints(1);
+    showHint();
   }
 
   bool _canEscape(ArrowModel arrow) {
@@ -228,4 +266,7 @@ class GameController extends ChangeNotifier {
     _soundEnabled = !_soundEnabled;
     notifyListeners();
   }
+
+  /// Public refresh — used after external state changes (e.g. daily rewards).
+  void refreshUI() => notifyListeners();
 }
