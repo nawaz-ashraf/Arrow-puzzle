@@ -130,18 +130,20 @@ class LevelData {
 
     // ── CHAPTER II — Neon Dark (5×5, length 1-2, no blockers) ────────────
 
+    // Level 11 — Blockade (verified solvable)
+    // Solution: 11b→, 11c→, 11d↓, 11a→→, 11f↑, 11g↑, 11h↓, 11e←
     LevelModel(
       id: 11, name: 'Blockade', rows: 5, cols: 5,
       difficulty: Difficulty.medium, targetMoves: 8,
       arrows: [
         _a('11a', 0, 0, ArrowDirection.right, length: 2),
-        _a('11b', 0, 3, ArrowDirection.down),
-        _a('11c', 2, 3, ArrowDirection.right),
-        _a('11d', 2, 4, ArrowDirection.down),
-        _a('11e', 4, 2, ArrowDirection.left, length: 2),
-        _a('11f', 2, 1, ArrowDirection.up),
-        _a('11g', 3, 2, ArrowDirection.up),
-        _a('11h', 4, 0, ArrowDirection.right),
+        _a('11b', 1, 3, ArrowDirection.right),
+        _a('11c', 2, 2, ArrowDirection.right),
+        _a('11d', 0, 4, ArrowDirection.down),
+        _a('11e', 3, 3, ArrowDirection.left),
+        _a('11f', 1, 1, ArrowDirection.up),
+        _a('11g', 2, 0, ArrowDirection.up),
+        _a('11h', 3, 1, ArrowDirection.down),
       ],
     ),
 

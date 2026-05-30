@@ -7,8 +7,19 @@ class DailyRewardDialog {
   DailyRewardDialog._();
 
   /// Call this from any screen on init to auto-show if unclaimed.
+  /// Properly awaits service readiness before checking.
   static Future<void> checkAndShow(BuildContext context, GameController controller) async {
-    if (controller.dailyRewards.claimedToday) return;
+    // Wait for services to be fully loaded before checking
+    if (!controller.dailyRewards.loaded) {
+      // Services not ready yet — wait a bit and retry once
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!context.mounted) return;
+      if (!controller.dailyRewards.loaded) return; // Still not loaded, bail
+    }
+
+    // Use the proper canClaimDailyReward() which double-checks persisted date
+    final canClaim = await controller.dailyRewards.canClaimDailyReward();
+    if (!canClaim) return;
 
     final result = await controller.dailyRewards.claimDailyReward();
     if (result == null) return;

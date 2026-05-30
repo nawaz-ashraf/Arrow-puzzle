@@ -2,8 +2,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Manages daily rewards and streak bonuses.
 ///
-/// - 1 free hint given daily on first app open
+/// - 1 free hint given daily on first app open (once per calendar day)
 /// - Streak bonus: extra hint after 3 consecutive days
+/// - Rewards are NOT given on every app launch — only once per day
 class DailyRewardService {
   static const _keyLastClaimDate = 'daily_reward_last_claim';
   static const _keyStreak = 'daily_reward_streak';
@@ -13,10 +14,12 @@ class DailyRewardService {
   int _freeHints = kInitialFreeHints;
   int _streak = 0;
   bool _claimedToday = false;
+  bool _loaded = false;
 
   int get freeHints => _freeHints;
   int get streak => _streak;
   bool get claimedToday => _claimedToday;
+  bool get loaded => _loaded;
 
   // ── Load / Save ─────────────────────────────────────────────────────────
 
@@ -28,11 +31,8 @@ class DailyRewardService {
     final lastClaim = prefs.getString(_keyLastClaimDate);
     final today = _todayKey();
 
-    if (lastClaim == today) {
-      _claimedToday = true;
-    } else {
-      _claimedToday = false;
-    }
+    _claimedToday = (lastClaim == today);
+    _loaded = true;
   }
 
   Future<void> _save() async {
@@ -43,13 +43,32 @@ class DailyRewardService {
 
   // ── Daily Claim ─────────────────────────────────────────────────────────
 
-  /// Returns (hintsAwarded, isStreakBonus) or null if already claimed.
-  Future<(int, bool)?> claimDailyReward() async {
-    if (_claimedToday) return null;
-
+  /// Checks whether the daily reward can be claimed right now.
+  /// Returns true only if it has NOT been claimed today.
+  Future<bool> canClaimDailyReward() async {
+    if (!_loaded) await load();
     final prefs = await SharedPreferences.getInstance();
     final lastClaim = prefs.getString(_keyLastClaimDate);
     final today = _todayKey();
+    return lastClaim != today;
+  }
+
+  /// Returns (hintsAwarded, isStreakBonus) or null if already claimed.
+  Future<(int, bool)?> claimDailyReward() async {
+    // Guard: ensure loaded before claiming
+    if (!_loaded) await load();
+    if (_claimedToday) return null;
+
+    // Double-check against persisted date (prevents race conditions)
+    final prefs = await SharedPreferences.getInstance();
+    final lastClaim = prefs.getString(_keyLastClaimDate);
+    final today = _todayKey();
+
+    if (lastClaim == today) {
+      _claimedToday = true;
+      return null;
+    }
+
     final yesterday = _dateKey(DateTime.now().subtract(const Duration(days: 1)));
 
     // Update streak
@@ -99,5 +118,8 @@ class DailyRewardService {
   // ── Date helpers ────────────────────────────────────────────────────────
 
   String _todayKey() => _dateKey(DateTime.now());
-  String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
+
+  /// Zero-padded yyyy-MM-dd format for reliable date comparison.
+  String _dateKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
